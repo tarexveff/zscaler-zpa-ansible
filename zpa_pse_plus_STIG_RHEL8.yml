@@ -1,0 +1,88 @@
+# Requires the RHEL 8 STIG Ansible Role to be installed on the host running this playbook
+# ansible-galaxy install redhatofficial.rhel8_stig
+# Be sure to fill in your ZPA provisioning key in the "Create provisioning key task"
+# Create the zscaler-repo file in your local directory with the following content:
+#   [zscaler]
+#   name=Zscaler Private Access Repository
+#   baseurl=https://yum.private.zscaler.com/yum/el7
+#   enabled=1
+#   gpgcheck=1
+#   gpgkey=https://yum.private.zscaler.com/gpg
+---
+
+- name: Configure ZPA Private Service Edge
+  hosts: app_connectors
+  remote_user: sam
+
+  tasks:
+  - name: Copy Private Service Edge Repo File to server
+    copy:
+      src: ./zscaler-repo
+      dest: /etc/yum.repos.d/zscaler.repo
+    become: yes
+  - name: Install Private Service Edge RPM
+    yum:
+      name: zpa-service-edge
+      state: present
+    become: yes
+  - name: Stop PSE
+    ansible.builtin.service:
+      name: zpa-service-edge
+      state: stopped
+    become: yes
+  - name: Create gov flag file
+    copy:
+      content: ""
+      dest: /opt/zscaler/var/gov
+      force: no
+      group: sys
+      owner: root
+      mode: 0644
+    become: yes
+  - name: Create provisioning key
+    copy:
+      content: "FILL IN PROVISIONING KEY"
+      dest: /opt/zscaler/var/provision_key
+      force: no
+      group: sys
+      owner: root
+      mode: 0644
+    become: yes
+  - name: Start Private Service Edge
+    ansible.builtin.service:
+      name: zpa-service-edge
+      state: started
+    become: yes
+  - name: STIG the box
+    include_role:
+      name: redhatofficial.rhel8_stig
+  - name: Stop Private Service Edge
+    ansible.builtin.service:
+      name: zpa-service-edge
+      state: stopped
+    become: yes
+  - name: Stop fapolicyd
+    ansible.builtin.service:
+      name: fapolicyd
+      state: stopped
+    become: yes 
+  - name: Add exception to fapolicyd for Zscaler binaries
+    blockinfile:
+      path: "/etc/fapolicyd/fapolicyd.rules"
+      insertbefore: '# Carve out an exception for dracut initramfs building'
+      block: |
+        # Add exception for Zscaler binaries to allow upgrades to succeed
+        allow perm=any trust=1 : dir=/opt/zscaler/ all trust=0
+    become: yes
+  - name: Start fapolicyd
+    ansible.builtin.service:
+      name: fapolicyd
+      state: started
+    become: yes 
+  - name: Start Private Service Edge
+    ansible.builtin.service:
+      name: zpa-service-edge
+      state: started
+    become: yes
+  - name: Reboot Server
+    reboot:
