@@ -32,7 +32,7 @@
       name: zpa-connector
       state: stopped
     become: yes
-  - name: Create gov flag file
+  - name: Create gov flag file test
     copy:
       content: ""
       dest: /opt/zscaler/var/gov
