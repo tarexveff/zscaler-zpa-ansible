@@ -8,7 +8,6 @@
 #   enabled=1
 #   gpgcheck=1
 #   gpgkey=https://yum.private.zscaler.com/gpg
-#test
 ---
 
 - name: Configure ZPA App Connectors
